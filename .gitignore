@@ -3,6 +3,7 @@ build/
 .idea/
 .vs/
 .vscode/
+.cache/
 *.suo
 *.sln
 *.vcxproj
