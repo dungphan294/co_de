@@ -11,7 +11,11 @@ struct Node{
     Node * left;
     Node * right;
 
-    Node(char ch, int freq) : character(ch), frequency(freq), left(nullptr), right(nullptr) {}
+    Node(char ch, int freq) : 
+        frequency(freq), 
+        character(ch), 
+        left(nullptr), 
+        right(nullptr) {}
 };
 
 // Compare the priority queue
