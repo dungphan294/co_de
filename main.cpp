@@ -3,6 +3,9 @@
 #include "vector"
 #include "string"
 #include "queue"
+#include "bitset"
+#include "string"
+#include "fstream"
 
 // Huffman tree node
 struct Node{
@@ -86,32 +89,51 @@ std::string decode(const std::string &encoded_text, Node *root){
 }
 
 
-int main(){
-    // Input text
-    std::string text;
-    std::cout << "Enter the text to compress: ";
-    std::getline(std::cin, text);
+void compressFile(const std::string& inputFile, const std::string& outputFile, Node*& root, std::unordered_map<char, std::string>& huffmanCodes) {
+    // Read the input file
+    std::ifstream inFile(inputFile);
+    std::string text((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
+    inFile.close();
 
-    // Build the Huffman tree
-    Node* root = Huffman_tree(text);
-
-    // Generate Huffman codes
-    std::unordered_map<char, std::string> huffmanCodes;
+    // Build Huffman Tree and Codes
+    root = Huffman_tree(text);
     print_code(root, "", huffmanCodes);
-
-    // Display the Huffman codes
-    std::cout << "\nHuffman Codes:\n";
-    for (const auto& pair : huffmanCodes) {
-        std::cout << pair.first << ": " << pair.second << '\n';
-    }
 
     // Encode the text
     std::string encodedText = encode(text, huffmanCodes);
-    std::cout << "\nEncoded Text: " << encodedText << '\n';
 
-    // Decode the encoded text
+    // Write encoded binary data to the output file
+    std::ofstream outFile(outputFile, std::ios::binary); // open file in binary mode
+    outFile << encodedText;
+    outFile.close();
+}
+
+void decompressFile(const std::string& inputFile, const std::string& outputFile, Node* root) {
+    // Read the encoded binary file
+    std::ifstream inFile(inputFile, std::ios::binary);
+    std::string encodedText((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
+    inFile.close();
+
+    // Decode the text
     std::string decodedText = decode(encodedText, root);
-    std::cout << "Decoded Text: " << decodedText << '\n';
+
+    // Write the decoded text to the output file
+    std::ofstream outFile(outputFile);
+    outFile << decodedText;
+    outFile.close();
+}
+
+int main() {
+    Node* root = nullptr;
+    std::unordered_map<char, std::string> huffmanCodes;
+
+    // Compress input.txt to compressed.bin
+    compressFile("input.txt", "compressed.bin", root, huffmanCodes);
+
+    // Decompress compressed.bin to output.txt
+    decompressFile("compressed.bin", "output.txt", root);
+
+    std::cout << "Compression and decompression complete. Check output.txt for results.\n";
 
     return 0;
 }
