@@ -1,1 +1,0 @@
-this is an example test file for huffman encoding and decoding

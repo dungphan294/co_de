@@ -10,6 +10,7 @@ add_executable(${PROGRAM_NAME})
 target_sources(${PROGRAM_NAME}
     PRIVATE
     main.cpp
+    src/huffman.cpp
 )
 
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
@@ -26,6 +27,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 # target_link_options(${PROGRAM_NAME} PRIVATE
 #     -fsanitize=address,undefined
 # )
+
+configure_file(input.txt input.txt COPYONLY)
 
 # Warnings and optimizations
 target_compile_options(${PROGRAM_NAME} PRIVATE

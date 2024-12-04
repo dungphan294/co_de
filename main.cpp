@@ -1,143 +1,92 @@
-#include <iostream>
-#include "unordered_map"
-#include "vector"
-#include "string"
-#include "queue"
-#include "bitset"
-#include "string"
-#include "fstream"
+#include <bits/stdc++.h>
 
-// Huffman tree node
-struct Node{
-    int frequency;
-    char character;
-    Node * left;
-    Node * right;
-
-    Node(char ch, int freq) : 
-        frequency(freq), 
-        character(ch), 
-        left(nullptr), 
-        right(nullptr) {}
-};
-
-// Compare the priority queue
-struct compare {
-    bool operator()(Node * left, Node * right){
-        return left->frequency > right ->frequency;
-    }
-};
-
-Node * Huffman_tree(const std::string &text){
-    std::unordered_map<char, int > freq;
-    for (char ch : text){
-        freq[ch]++;
+std::vector<int> encoding(std::string s1)
+{
+    std::cout << "Encoding\n";
+    std::unordered_map<std::string, int> table;
+    for (int i = 0; i <= 255; i++)
+    {
+        std::string ch = "";
+        ch += char(i);
+        table[ch] = i;
     }
 
-    // Create a priority queue to build the tree
-    std::priority_queue<Node*, std::vector<Node*>, compare> minHeap;
-    for (const auto& pair: freq){
-        minHeap.push(new Node(pair.first, pair.second));
-    }
-
-    // Build the Huffman tree
-    while (minHeap.size() > 1) {
-        Node* left = minHeap.top(); minHeap.pop();
-        Node* right = minHeap.top(); minHeap.pop();
-
-        Node* mergedNode = new Node('\0', left->frequency + right->frequency);
-        mergedNode->left = left;
-        mergedNode->right = right;
-        minHeap.push(mergedNode);
-    }
-
-    return minHeap.top();
-}
-
-void print_code(Node* root, const std::string& str, std::unordered_map<char, std::string>& Huffman_tree){
-    if(!root) return;
-    if(root->character != '\0'){
-        Huffman_tree[root->character] = str;
-    }
-
-    print_code(root->left, str + "0", Huffman_tree);// Traverse the left subtree by appending "0" to the code.
-    print_code(root->right, str + "1", Huffman_tree);// Traverse the right subtree by appending "1" to the code.
-}
-
-std::string encode(const std::string &str, const std::unordered_map<char, std::string> & Huffman_tree){
-    std::string text;
-    for (char ch : str){
-        text += Huffman_tree.at(ch);
-    }
-    return text;
-}
-
-std::string decode(const std::string &encoded_text, Node *root){
-    std::string decoded_text;
-    Node *current = root;
-
-    // Traverse the Huffman tree
-    for (char bit : encoded_text) {
-        if (bit == '0') {
-            current = current->left;
-        } else {
-            current = current->right;
+    std::string p = "", c = "";
+    p += s1[0];
+    int code = 256;
+    std::vector<int> output_code;
+    std::cout << "String\tOutput_Code\tAddition\n";
+    for (size_t i = 0; i < s1.length(); i++)
+    {
+        if (i != s1.length() - 1)
+            c += s1[i + 1];
+        if (table.find(p + c) != table.end())
+        {
+            p = p + c;
         }
-
-        if (current->left == nullptr && current->right == nullptr) {
-            decoded_text += current->character;
-            current = root;
+        else
+        {
+            std::cout << p << "\t" << table[p] << "\t\t"
+                      << p + c << "\t" << code << '\n';
+            output_code.push_back(table[p]);
+            table[p + c] = code;
+            code++;
+            p = c;
         }
+        c = "";
     }
-    return decoded_text;
+    std::cout << p << "\t" << table[p] << '\n';
+    output_code.push_back(table[p]);
+    return output_code;
 }
 
-
-void compressFile(const std::string& inputFile, const std::string& outputFile, Node*& root, std::unordered_map<char, std::string>& huffmanCodes) {
-    // Read the input file
-    std::ifstream inFile(inputFile);
-    std::string text((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
-    inFile.close();
-
-    // Build Huffman Tree and Codes
-    root = Huffman_tree(text);
-    print_code(root, "", huffmanCodes);
-
-    // Encode the text
-    std::string encodedText = encode(text, huffmanCodes);
-
-    // Write encoded binary data to the output file
-    std::ofstream outFile(outputFile, std::ios::binary); // open file in binary mode
-    outFile << encodedText;
-    outFile.close();
+void decoding(std::vector<int> op)
+{
+    std::cout << "\nDecoding\n";
+    std::unordered_map<int, std::string> table;
+    for (int i = 0; i <= 255; i++)
+    {
+        std::string ch = "";
+        ch += char(i);
+        table[i] = ch;
+    }
+    int old = op[0], n;
+    std::string s = table[old];
+    std::string c = "";
+    c += s[0];
+    std::cout << s;
+    int count = 256;
+    for (size_t i = 0; i < op.size() - 1; i++)
+    {
+        n = op[i + 1];
+        if (table.find(n) == table.end())
+        {
+            s = table[old];
+            s = s + c;
+        }
+        else
+        {
+            s = table[n];
+        }
+        std::cout << s;
+        c = "";
+        c += s[0];
+        table[count] = table[old] + c;
+        count++;
+        old = n;
+    }
 }
+int main()
+{
 
-void decompressFile(const std::string& inputFile, const std::string& outputFile, Node* root) {
-    // Read the encoded binary file
-    std::ifstream inFile(inputFile, std::ios::binary);
-    std::string encodedText((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
-    inFile.close();
-
-    // Decode the text
-    std::string decodedText = decode(encodedText, root);
-
-    // Write the decoded text to the output file
-    std::ofstream outFile(outputFile);
-    outFile << decodedText;
-    outFile.close();
-}
-
-int main() {
-    Node* root = nullptr;
-    std::unordered_map<char, std::string> huffmanCodes;
-
-    // Compress input.txt to compressed.bin
-    compressFile("input.txt", "compressed.bin", root, huffmanCodes);
-
-    // Decompress compressed.bin to output.txt
-    decompressFile("compressed.bin", "output.txt", root);
-
-    std::cout << "Compression and decompression complete. Check output.txt for results.\n";
-
-    return 0;
+    std::string s = "WYS*WYGWYS*WYSWYSG";
+    std::vector<int> output_code = encoding(s);
+    std::cout << "Output Codes are: ";
+    for (size_t i = 0; i < output_code.size(); i++)
+    {
+        std::cout << output_code[i] << " ";
+    }
+    std::cout << '\n';
+    decoding(output_code);
+    std::cout << '\n';
 }
