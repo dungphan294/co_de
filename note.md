@@ -10,4 +10,5 @@
 6. Goal 6: Finalize and documentation
 
 # References
-
+https://chidokun.github.io/2021/07/huffman-coding-p1/
+https://www.hlevkin.com/hlevkin/02imageprocC/The%20Data%20Compression%20Book%202nd%20edition.pdf
