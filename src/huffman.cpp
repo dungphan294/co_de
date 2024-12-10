@@ -7,40 +7,28 @@ namespace huffman
                                     left(nullptr),
                                     right(nullptr) {}
 
+    // Comparison for priority queue
     bool compare::operator()(Node *left, Node *right)
     {
         return left->frequency > right->frequency;
     }
 
-    Node *Huffman_tree(const std::string &text)
-    {
-        std::unordered_map<char, int> freq;
-        for (char ch : text)
-        {
-            freq[ch]++;
-        }
-
-        // Create a priority queue to build the tree
-        std::priority_queue<Node *, std::vector<Node *>, compare> minHeap;
-        for (const auto &pair : freq)
-        {
+    // Build Huffman Tree
+    Node* buildHuffmanTree(const std::string& text) {
+        std::unordered_map<char, int> freqMap;
+        for (char ch : text) freqMap[ch]++;
+        std::priority_queue<Node*, std::vector<Node*>, compare> minHeap;
+        for (const auto& pair : freqMap) {
             minHeap.push(new Node(pair.first, pair.second));
         }
-
-        // Build the Huffman tree
-        while (minHeap.size() > 1)
-        {
-            Node *left = minHeap.top();
-            minHeap.pop();
-            Node *right = minHeap.top();
-            minHeap.pop();
-
-            Node *mergedNode = new Node('\0', left->frequency + right->frequency);
+        while (minHeap.size() > 1) {
+            Node* left = minHeap.top(); minHeap.pop();
+            Node* right = minHeap.top(); minHeap.pop();
+            Node* mergedNode = new Node('\0', left->frequency + right->frequency);
             mergedNode->left = left;
             mergedNode->right = right;
             minHeap.push(mergedNode);
         }
-
         return minHeap.top();
     }
 
@@ -93,40 +81,79 @@ namespace huffman
         return decoded_text;
     }
 
-    void compressFile(const std::string &inputFile, const std::string &outputFile, Node *&root, std::unordered_map<char, std::string> &huffmanCodes)
-    {
-        // Read the input file
-        std::ifstream inFile(inputFile);
-        std::string text((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
-        inFile.close();
+    // Write ZIP-Like File
+    void writeZipFile(const std::string& compressedFile, const std::string& encodedText,
+                      const std::unordered_map<char, std::string>& huffmanCodes, const std::string& originalFileName) {
+        std::ofstream outFile(compressedFile, std::ios::binary);
+        size_t fileNameLength = originalFileName.size();
+        outFile.write(reinterpret_cast<const char*>(&fileNameLength), sizeof(fileNameLength));
+        outFile.write(originalFileName.c_str(), fileNameLength);
 
-        // Build Huffman Tree and Codes
-        root = Huffman_tree(text);
-        print_code(root, "", huffmanCodes);
+        size_t mapSize = huffmanCodes.size();
+        outFile.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
+        for (const auto& pair : huffmanCodes) {
+            outFile.put(pair.first);
+            size_t codeLength = pair.second.size();
+            outFile.write(reinterpret_cast<const char*>(&codeLength), sizeof(codeLength));
+            outFile.write(pair.second.c_str(), codeLength);
+        }
 
-        // Encode the text
-        std::string encodedText = encode(text, huffmanCodes);
-
-        // Write encoded binary data to the output file
-        std::ofstream outFile(outputFile, std::ios::binary); // open file in binary mode
-        outFile << encodedText;
+        size_t encodedSize = encodedText.size();
+        outFile.write(reinterpret_cast<const char*>(&encodedSize), sizeof(encodedSize));
+        for (size_t i = 0; i < encodedSize; i += 8) {
+            std::bitset<8> byte(encodedText.substr(i, 8));
+            outFile.put(static_cast<unsigned char>(byte.to_ulong()));
+        }
         outFile.close();
     }
 
-    void decompressFile(const std::string &inputFile, const std::string &outputFile, Node *root)
-    {
-        // Read the encoded binary file
-        std::ifstream inFile(inputFile, std::ios::binary);
-        std::string encodedText((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>()); // read characters directly from an input stream
+    void decompressZipFile(const std::string& compressedFile, std::string& decompressedText) {
+        std::ifstream inFile(compressedFile, std::ios::binary);
+        if (!inFile) {
+            throw std::runtime_error("Failed to open compressed file.");
+        }
+
+        // Read original file name length and skip it
+        size_t fileNameLength;
+        inFile.read(reinterpret_cast<char*>(&fileNameLength), sizeof(fileNameLength));
+        std::string fileName(fileNameLength, '\0');
+        inFile.read(&fileName[0], fileNameLength);
+
+        // Read Huffman code mappings
+        size_t mapSize;
+        inFile.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
+        std::unordered_map<std::string, char> reverseHuffmanCodes;
+        for (size_t i = 0; i < mapSize; ++i) {
+            char ch = inFile.get();
+            size_t codeLength;
+            inFile.read(reinterpret_cast<char*>(&codeLength), sizeof(codeLength));
+            std::string code(codeLength, '\0');
+            inFile.read(&code[0], codeLength);
+            reverseHuffmanCodes[code] = ch;
+        }
+
+        // Read encoded text length
+        size_t encodedSize;
+        inFile.read(reinterpret_cast<char*>(&encodedSize), sizeof(encodedSize));
+
+        // Read the encoded binary data
+        std::string encodedText;
+        for (size_t i = 0; i < encodedSize; i += 8) {
+            unsigned char byte = inFile.get();
+            std::bitset<8> bits(byte);
+            encodedText += bits.to_string();
+        }
+
+        // Decode the binary data using the Huffman codes
+        std::string currentCode;
+        for (char bit : encodedText) {
+            currentCode += bit;
+            if (reverseHuffmanCodes.count(currentCode)) {
+                decompressedText += reverseHuffmanCodes[currentCode];
+                currentCode.clear();
+            }
+        }
+
         inFile.close();
-
-        // Decode the text
-        std::string decodedText = decode(encodedText, root);
-
-        // Write the decoded text to the output file
-        std::ofstream outFile(outputFile);
-        outFile << decodedText;
-        outFile.close();
     }
-
 } // namespace huffman

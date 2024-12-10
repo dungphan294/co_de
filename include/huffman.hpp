@@ -48,7 +48,7 @@ namespace huffman
      * @param text The input string.
      * @return Pointer to the root of the Huffman tree.
      */
-    Node *Huffman_tree(const std::string &text);
+    Node* buildHuffmanTree(const std::string& text);
 
     /**
      * @brief Generate Huffman codes for each character.
@@ -81,7 +81,7 @@ namespace huffman
      * @param root Reference to the Huffman tree root pointer.
      * @param huffmanCodes Map to store Huffman codes for characters.
      */
-    void compressFile(const std::string &inputFile, const std::string &outputFile, Node *&root, std::unordered_map<char, std::string> &huffmanCodes);
+  //  void compressFile(const std::string &inputFile, const std::string &outputFile, Node *&root, std::unordered_map<char, std::string> &huffmanCodes);
 
     /**
      * @brief Decompress a Huffman-encoded file.
@@ -89,7 +89,11 @@ namespace huffman
      * @param outputFile Path to the output file for the decompressed text.
      * @param root Pointer to the Huffman tree root.
      */
-    void decompressFile(const std::string &inputFile, const std::string &outputFile, Node *root);
+   // void decompressFile(const std::string &inputFile, const std::string &outputFile, Node *root);
+   void writeZipFile(const std::string& compressedFile, const std::string& encodedText,
+                     const std::unordered_map<char, std::string>& huffmanCodes, const std::string& originalFileName);
+
+   void decompressZipFile(const std::string& compressedFile, std::string& decompressedText);
 }
 
 #endif // HUFFMAN_TREE_HPP

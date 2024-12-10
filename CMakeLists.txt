@@ -13,6 +13,9 @@ target_sources(${PROGRAM_NAME}
     src/huffman.cpp
 )
 
+#find_package(ZLIB REQUIRED)  # Find zlib package
+#target_link_libraries(co_de PRIVATE ZLIB::ZLIB)  # Link zlib to your target
+
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
 
 target_compile_features(${PROGRAM_NAME} PRIVATE cxx_std_20)
