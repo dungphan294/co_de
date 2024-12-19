@@ -5,7 +5,9 @@ project(co_de)
 # creates a variable PROGRAM_NAME with the value co_de
 set(PROGRAM_NAME co_de)
 
-add_executable(${PROGRAM_NAME})
+add_executable(${PROGRAM_NAME}
+        include/lzw.hpp
+        src/lzw.cpp)
 
 target_sources(${PROGRAM_NAME}
     PRIVATE

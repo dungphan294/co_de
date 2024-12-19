@@ -85,27 +85,42 @@ namespace huffman
     void writeZipFile(const std::string& compressedFile, const std::string& encodedText,
                       const std::unordered_map<char, std::string>& huffmanCodes, const std::string& originalFileName) {
         std::ofstream outFile(compressedFile, std::ios::binary);
+        if (!outFile) {
+            throw std::runtime_error("Failed to open output file for writing.");
+        }
+
+        // Step 1: Write the original file name length and the file name
         size_t fileNameLength = originalFileName.size();
         outFile.write(reinterpret_cast<const char*>(&fileNameLength), sizeof(fileNameLength));
         outFile.write(originalFileName.c_str(), fileNameLength);
 
+        // Step 2: Write the Huffman codes to the file
         size_t mapSize = huffmanCodes.size();
         outFile.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
         for (const auto& pair : huffmanCodes) {
-            outFile.put(pair.first);
+            outFile.put(pair.first);  // Write the character
             size_t codeLength = pair.second.size();
             outFile.write(reinterpret_cast<const char*>(&codeLength), sizeof(codeLength));
-            outFile.write(pair.second.c_str(), codeLength);
+            outFile.write(pair.second.c_str(), codeLength);  // Write the Huffman code
         }
 
+        // Step 3: Write the length of the encoded text
         size_t encodedSize = encodedText.size();
         outFile.write(reinterpret_cast<const char*>(&encodedSize), sizeof(encodedSize));
+
+        // Step 4: Write the encoded text as binary data (convert every 8 bits to a byte)
         for (size_t i = 0; i < encodedSize; i += 8) {
-            std::bitset<8> byte(encodedText.substr(i, 8));
+            std::string byteStr = encodedText.substr(i, 8);
+            while (byteStr.size() < 8) {
+                byteStr += '0';  // Pad with '0' if the final byte is less than 8 bits
+            }
+            std::bitset<8> byte(byteStr);
             outFile.put(static_cast<unsigned char>(byte.to_ulong()));
         }
+
         outFile.close();
     }
+
 
     void decompressZipFile(const std::string& compressedFile, std::string& decompressedText) {
         std::ifstream inFile(compressedFile, std::ios::binary);
