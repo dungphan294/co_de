@@ -7,7 +7,8 @@ set(PROGRAM_NAME co_de)
 
 add_executable(${PROGRAM_NAME}
         include/lzw.hpp
-        src/lzw.cpp)
+        src/lzw.cpp
+)
 
 target_sources(${PROGRAM_NAME}
     PRIVATE
@@ -16,7 +17,6 @@ target_sources(${PROGRAM_NAME}
 )
 
 #find_package(ZLIB REQUIRED)  # Find zlib package
-#target_link_libraries(co_de PRIVATE ZLIB::ZLIB)  # Link zlib to your target
 
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
 
