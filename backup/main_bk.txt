@@ -1,0 +1,335 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <array>
+#include <vector>  // Include for std::vector
+#include <gif_lib.h>
+#include <chrono>   // For high-precision timing
+#include <cstring> // For memcpy
+#include <cstdint> // For uint32_t
+
+// Function to compress a text file using LZW Version 1
+/// @param [in] inputFile  input file
+/// @param [in] outputFile output file
+/// @return true if the file was compressed successfully, false otherwise
+bool lzwCompressv1(const std::string &inputFile, const std::string &outputFile)
+{
+    std::ifstream in(inputFile, std::ios::binary);
+    std::ofstream out(outputFile, std::ios::binary);
+
+    if (!in.is_open() || !out.is_open())
+    {
+        std::cerr << "Error opening files." << std::endl;
+        return false;
+    }
+
+    // Initialize the dictionary with single characters (ASCII)
+    std::unordered_map<std::string, int> dictionary;
+    for (int i = 0; i < 256; ++i)
+    {
+        std::string s(1, (char)i);
+        dictionary[s] = i;
+    }
+
+    std::string currentString;
+    int nextCode = 256; // Start codes after ASCII range
+
+    char c;
+    while (in.get(c))
+    {
+        std::string newString = currentString + c;
+        if (dictionary.count(newString))
+        {
+            currentString = newString;
+        }
+        else
+        {
+            // Output the code for the current string
+            out.write(reinterpret_cast<char *>(&dictionary[currentString]), sizeof(int)); // write the integer code
+
+            // Add the new string to the dictionary
+            dictionary[newString] = nextCode++;
+            currentString = std::string(1, c); // Start with the current character
+        }
+    }
+
+    // Output the code for the last string
+    if (!currentString.empty())
+    {
+        out.write(reinterpret_cast<char *>(&dictionary[currentString]), sizeof(int));
+    }
+
+    in.close();
+    out.close();
+    return true;
+}
+
+/// @brief Compresses a file using LZW with reset dictionary
+/// @param inputFile file to compress
+/// @param outputFile file to write compressed data
+/// @return true if the file was compressed successfully, false otherwise
+bool lzwCompress(const std::string& inputFile, const std::string& outputFile) {
+    std::ifstream in(inputFile, std::ios::binary);
+    std::ofstream out(outputFile, std::ios::binary);
+
+    if (!in.is_open() || !out.is_open()) {
+        std::cerr << "Error opening files." << std::endl;
+        return false;
+    }
+
+    std::array<std::string, 256> initial_dict;
+    for (int i = 0; i < 256; ++i) {
+        initial_dict[i] = std::string(1, (char)i);
+    }
+
+    std::unordered_map<std::string, int> dictionary;
+    dictionary.reserve(4096);  // Reserve space (adjust as needed)
+    for (int i = 0; i < 256; ++i) {
+        dictionary[initial_dict[i]] = i;
+    }
+
+    std::string currentString;
+    int nextCode = 256;
+
+    char c;
+    while (in.get(c)) {
+        std::string_view newStringView;
+        if (currentString.empty()) {
+            newStringView = std::string_view(&c, 1);
+        } else {
+            newStringView = std::string_view(currentString.data(), currentString.length() + 1);
+        }
+
+        if (dictionary.count(std::string(newStringView))) { // Conversion needed for map lookup
+            currentString += c;
+        } else {
+            out.write(reinterpret_cast<char*>(&dictionary[currentString]), sizeof(int));
+            dictionary[std::string(newStringView)] = nextCode++; // Conversion needed for map insertion
+            currentString = std::string(1, c);
+        }
+    }
+
+    if (!currentString.empty()) {
+        out.write(reinterpret_cast<char*>(&dictionary[currentString]), sizeof(int));
+    }
+
+    in.close();
+    out.close();
+    return true;
+}
+
+bool lzwDecompressv2(const std::string& inputFile, const std::string& outputFile) {
+    std::ifstream in(inputFile, std::ios::binary);
+    std::ofstream out(outputFile, std::ios::binary);
+
+    if (!in.is_open() || !out.is_open()) {
+        std::cerr << "Error opening files." << std::endl;
+        return false;
+    }
+
+    std::array<std::string, 4096> dictionary;
+    for (int i = 0; i < 256; ++i) {
+        dictionary[i] = std::string(1, (char)i);
+    }
+
+    uint32_t nextCode = 256;
+    uint32_t code;
+    std::string previousString;
+
+    // Read the first code (handle empty file)
+    in.read(reinterpret_cast<char*>(&code), sizeof(uint32_t));
+    if (in.gcount() == 0) {  // Check for empty file or read error
+        if (in.eof()) {
+            return true; // Empty file
+        } else {
+            std::cerr << "Error reading first code." << std::endl;
+            return false;
+        }
+    }
+
+    previousString = dictionary[code];
+    out.write(previousString.c_str(), previousString.length());
+
+    // Loop until the read fails (end of file)
+    while (in.read(reinterpret_cast<char*>(&code), sizeof(uint32_t))) {
+        if (in.fail()) break; // Exit the loop if the read failed (important!)
+
+        std::string currentString;
+        if (code < nextCode) {
+            currentString = dictionary[code];
+        } else {
+            currentString = previousString + previousString[0];
+        }
+        out.write(currentString.c_str(), currentString.length());
+        dictionary[nextCode++] = previousString + currentString[0];
+        previousString = currentString;
+
+        if (nextCode >= 4096) {
+            for (int i = 0; i < 256; ++i) {
+                dictionary[i] = std::string(1, (char)i);
+            }
+            nextCode = 256;
+        }
+    }
+
+    in.close();
+    out.close();
+    return true;
+}
+
+// LZW Compress for bytes (improved and more efficient)
+std::vector<unsigned char> lzwCompressBytes(const unsigned char* data, size_t dataSize) {
+    std::vector<unsigned char> compressedData;
+    std::unordered_map<std::string, int> dictionary;
+    dictionary.reserve(4096);
+
+    for (int i = 0; i < 256; ++i) {
+        dictionary[std::string(1, (char)i)] = i;
+    }
+
+    std::string currentString;
+    int nextCode = 256;
+
+    for (size_t i = 0; i < dataSize; ++i) {
+        unsigned char c = data[i];
+        std::string newString = currentString + (char)c;
+
+        if (dictionary.count(newString)) {
+            currentString = newString;
+        } else {
+            int code = dictionary[currentString];
+            for (int j = 0; j < 4; ++j) {  // Use 'j' here!
+                compressedData.push_back(static_cast<unsigned char>((code >> (j * 8)) & 0xFF));
+            }
+
+            dictionary[newString] = nextCode++;
+
+            if (nextCode >= 4096) {
+                dictionary.clear();
+                for (int k = 0; k < 256; ++k) { // Use 'k' here!
+                    dictionary[std::string(1, (char)k)] = k;
+                }
+                nextCode = 256;
+                currentString = std::string(1, c);
+            } else {
+                currentString = std::string(1, c);
+            }
+        }
+    }
+
+    if (!currentString.empty()) {
+        int code = dictionary[currentString];
+        for (int j = 0; j < 4; ++j) { // Use 'j' here!
+            compressedData.push_back(static_cast<unsigned char>((code >> (j * 8)) & 0xFF));
+        }
+    }
+
+    return compressedData;
+}
+
+bool processGif(const char* inputGif) { // Removed unused outputGif parameter
+    int error;
+    GifFileType* gifFileIn = DGifOpenFileName(inputGif, &error);
+    if (!gifFileIn) {
+        std::cerr << "Error opening input GIF: " << GifErrorString(error) << std::endl;
+        return false;
+    }
+
+    if (DGifSlurp(gifFileIn) == GIF_ERROR) {
+        std::cerr << "Error reading GIF: " << GifErrorString(gifFileIn->Error) << std::endl;
+        DGifCloseFile(gifFileIn, &error);
+        return false;
+    }
+
+    if (gifFileIn->ImageCount == 0) {
+        std::cerr << "No images found in GIF." << std::endl;
+        DGifCloseFile(gifFileIn, &error);
+        return false;
+    }
+
+    SavedImage* image = &gifFileIn->SavedImages[0]; // Process the first image
+    int width = image->ImageDesc.Width;
+    int height = image->ImageDesc.Height;
+    int numPixels = width * height;
+
+    GifByteType* pixels = image->RasterBits;
+
+    std::vector<unsigned char> compressedPixels = lzwCompressBytes(pixels, numPixels);
+
+    if (compressedPixels.empty()) {
+        std::cerr << "LZW compression failed or returned empty." << std::endl;
+        DGifCloseFile(gifFileIn, &error);
+        return false;
+    }
+
+    std::ofstream compressedFile("compressed_pixels.lzw", std::ios::binary);
+    compressedFile.write(reinterpret_cast<char*>(compressedPixels.data()), compressedPixels.size());
+    compressedFile.close();
+
+    std::cout << "Original pixel data size: " << numPixels << std::endl;
+    std::cout << "Compressed pixel data size: " << compressedPixels.size() << std::endl;
+
+    DGifCloseFile(gifFileIn, &error);
+    return true;
+}
+
+
+int main()
+{
+    auto start = std::chrono::high_resolution_clock::now();
+
+    std::string inputFile = "Harry_Potter.txt";
+    std::string outputFile = "harry.lzw";
+
+    if (lzwCompressv2(inputFile, outputFile))
+    {
+        std::cout << "Text file compressed successfully." << std::endl;
+    }
+    else
+    {
+        std::cout << "Text file compression failed." << std::endl;
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Time taken for text compression: " << duration.count() << " ms" << std::endl;
+
+    // start = std::chrono::high_resolution_clock::now();
+
+    // // const char *inputGif = "cat.gif";
+
+    // // if (processGif(inputGif))
+    // // {
+    // //     std::cout << "GIF processed successfully." << std::endl;
+    // // }
+    // // else
+    // // {
+    // //     std::cout << "GIF processing failed." << std::endl;
+    // // }
+
+    // // end = std::chrono::high_resolution_clock::now();
+    // // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    // // std::cout << "Time taken for GIF processing: " << duration.count() << " ms" << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
+
+    std::string compressedFile = "harry.lzw";
+    std::string decompressedFile = "harry_decompressed.txt";
+
+    if (lzwDecompressv2(compressedFile, decompressedFile))
+    {
+        std::cout << "File decompressed successfully." << std::endl;
+    }
+    else
+    {
+        std::cout << "File decompression failed." << std::endl;
+    }
+
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Time taken for decompress text file: " << duration.count() << " ms" << std::endl;
+
+    return 0;
+}

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+
 project(co_de)
 
 # creates a variable PROGRAM_NAME with the value co_de
@@ -16,7 +18,14 @@ target_sources(${PROGRAM_NAME}
     src/huffman.cpp
 )
 
-#find_package(ZLIB REQUIRED)  # Find zlib package
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+
+find_package(fmt CONFIG REQUIRED)
+target_link_libraries(${PROGRAM_NAME} PRIVATE fmt::fmt)
+
+find_package(GIF REQUIRED)
+target_link_libraries(${PROGRAM_NAME} PRIVATE GIF::GIF)
+
 
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
 
@@ -33,7 +42,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 #     -fsanitize=address,undefined
 # )
 
+# Copy input files to build directory
+# Text files
 configure_file(input.txt input.txt COPYONLY)
+configure_file(Harry_Potter.txt Harry_Potter.txt COPYONLY)
+configure_file(input.txt input.txt COPYONLY)
+configure_file(input1.txt input1.txt COPYONLY)
+# Image files
+configure_file(image.png image.png COPYONLY)
+# gif files
+configure_file(cat.gif cat.gif COPYONLY)
 
 # Warnings and optimizations
 target_compile_options(${PROGRAM_NAME} PRIVATE
