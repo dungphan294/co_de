@@ -8,7 +8,9 @@
 #include <queue>
 #include <bitset>
 #include <fstream>
+#include <filesystem>
 
+namespace fs = std::filesystem;
 namespace huffman
 {
     /**
@@ -66,34 +68,11 @@ namespace huffman
      */
     std::string encode(const std::string &str, const std::unordered_map<char, std::string> &Huffman_tree);
 
-    /**
-     * @brief Decode a Huffman-encoded string.
-     * @param encoded_text The encoded string in binary form.
-     * @param root Pointer to the root of the Huffman tree.
-     * @return Decoded plain text string.
-     */
-    std::string decode(const std::string &encoded_text, Node *root);
+    void compressZipfile(const std::string &inputFile, const std::string &outputFile);
+    void decompressZipFile(std::ifstream& inFile, std::string& decompressedText);
 
-    /**
-     * @brief Compress a file using Huffman encoding.
-     * @param inputFile Path to the input file.
-     * @param outputFile Path to the output file for the compressed data.
-     * @param root Reference to the Huffman tree root pointer.
-     * @param huffmanCodes Map to store Huffman codes for characters.
-     */
-  //  void compressFile(const std::string &inputFile, const std::string &outputFile, Node *&root, std::unordered_map<char, std::string> &huffmanCodes);
-
-    /**
-     * @brief Decompress a Huffman-encoded file.
-     * @param inputFile Path to the input file (encoded binary data).
-     * @param outputFile Path to the output file for the decompressed text.
-     * @param root Pointer to the Huffman tree root.
-     */
-   // void decompressFile(const std::string &inputFile, const std::string &outputFile, Node *root);
-   void writeZipFile(const std::string& compressedFile, const std::string& encodedText,
-                     const std::unordered_map<char, std::string>& huffmanCodes, const std::string& originalFileName);
-
-   void decompressZipFile(const std::string& compressedFile, std::string& decompressedText);
+    void compressFolder(const std::string& folderPath, const std::string& outputFile);
+    void decompressFolder(const std::string &inputFolder, const std::string &outputFolder);
 }
 
 #endif // HUFFMAN_TREE_HPP

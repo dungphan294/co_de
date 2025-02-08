@@ -55,72 +55,53 @@ namespace huffman
         return text;
     }
 
-    std::string decode(const std::string &encoded_text, Node *root)
-    {
-        std::string decoded_text;
-        Node *current = root;
-
-        // Traverse the Huffman tree
-        for (char bit : encoded_text)
-        {
-            if (bit == '0')
-            {
-                current = current->left;
-            }
-            else
-            {
-                current = current->right;
-            }
-
-            if (current->left == nullptr && current->right == nullptr)
-            {
-                decoded_text += current->character;
-                current = root;
-            }
+    void compressZipfile(const std::string &inputFile, const std::string &outputFile) {
+        std::ifstream inFile(inputFile, std::ios::binary);
+        if (!inFile) {
+            throw std::runtime_error("Failed to open input file: " + inputFile);
         }
-        return decoded_text;
-    }
 
-    // Write ZIP-Like File
-    void writeZipFile(const std::string& compressedFile, const std::string& encodedText,
-                      const std::unordered_map<char, std::string>& huffmanCodes, const std::string& originalFileName) {
-        std::ofstream outFile(compressedFile, std::ios::binary);
+        std::ostringstream buffer;
+        buffer << inFile.rdbuf();
+        std::string inputText = buffer.str();
+        inFile.close();
+
+        Node* root = buildHuffmanTree(inputText);
+        std::unordered_map<char, std::string> huffmanCodes;
+        print_code(root, "", huffmanCodes);
+        std::string encodedText = encode(inputText, huffmanCodes);
+
+        std::ofstream outFile(outputFile, std::ios::binary);
         if (!outFile) {
-            throw std::runtime_error("Failed to open output file for writing.");
+            throw std::runtime_error("Failed to open output file: " + outputFile);
         }
 
-        // Write the original file name length and the file name
-        size_t fileNameLength = originalFileName.size();
+        size_t fileNameLength = inputFile.size();
         outFile.write(reinterpret_cast<const char*>(&fileNameLength), sizeof(fileNameLength));
-        outFile.write(originalFileName.c_str(), fileNameLength);
+        outFile.write(inputFile.c_str(), fileNameLength);
 
-        // Write the Huffman codes to the file
         size_t mapSize = huffmanCodes.size();
         outFile.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
         for (const auto& pair : huffmanCodes) {
-            outFile.put(pair.first);  // Write the character
+            outFile.put(pair.first);
             size_t codeLength = pair.second.size();
             outFile.write(reinterpret_cast<const char*>(&codeLength), sizeof(codeLength));
-            outFile.write(pair.second.c_str(), codeLength);  // Write the Huffman code
+            outFile.write(pair.second.c_str(), codeLength);
         }
 
-        // Write the length of the encoded text
         size_t encodedSize = encodedText.size();
         outFile.write(reinterpret_cast<const char*>(&encodedSize), sizeof(encodedSize));
 
-        // Write the encoded text as binary data (convert every 8 bits to a byte)
         for (size_t i = 0; i < encodedSize; i += 8) {
             std::string byteStr = encodedText.substr(i, 8);
             while (byteStr.size() < 8) {
-                byteStr += '0';  // Pad with '0' if the final byte is less than 8 bits
+                byteStr += '0';
             }
             std::bitset<8> byte(byteStr);
             outFile.put(static_cast<unsigned char>(byte.to_ulong()));
         }
-
         outFile.close();
     }
-
 
     void decompressZipFile(const std::string& compressedFile, std::string& decompressedText) {
         std::ifstream inFile(compressedFile, std::ios::binary);
@@ -169,6 +150,123 @@ namespace huffman
             }
         }
 
+        inFile.close();
+    }
+    // Write ZIP-Like File
+    void compressFolder(const std::string &inputFolder, const std::string &outputFile) {
+        std::ofstream outFile(outputFile, std::ios::binary);
+        if (!outFile) {
+            throw std::runtime_error("Failed to open output file: " + outputFile);
+        }
+
+        // Write folder metadata
+        size_t fileCount = std::distance(fs::directory_iterator(inputFolder), fs::directory_iterator());
+        outFile.write(reinterpret_cast<const char*>(&fileCount), sizeof(fileCount));
+
+        for (const auto &entry : fs::directory_iterator(inputFolder)) {
+            if (entry.is_regular_file()) {
+                std::string fileName = entry.path().filename().string();
+                std::ifstream inFile(entry.path(), std::ios::binary);
+                if (!inFile) {
+                    throw std::runtime_error("Failed to open input file: " + fileName);
+                }
+
+                std::ostringstream buffer;
+                buffer << inFile.rdbuf();
+                std::string fileContent = buffer.str();
+                inFile.close();
+
+                Node *root = buildHuffmanTree(fileContent);
+                std::unordered_map<char, std::string> huffmanCodes;
+                print_code(root, "", huffmanCodes);
+                std::string encodedText = encode(fileContent, huffmanCodes);
+
+                size_t nameLength = fileName.size();
+                outFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
+                outFile.write(fileName.c_str(), nameLength);
+
+                size_t mapSize = huffmanCodes.size();
+                outFile.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
+                for (const auto &pair : huffmanCodes) {
+                    outFile.put(pair.first);
+                    size_t codeLength = pair.second.size();
+                    outFile.write(reinterpret_cast<const char*>(&codeLength), sizeof(codeLength));
+                    outFile.write(pair.second.c_str(), codeLength);
+                }
+
+                size_t encodedSize = encodedText.size();
+                outFile.write(reinterpret_cast<const char*>(&encodedSize), sizeof(encodedSize));
+                for (size_t i = 0; i < encodedSize; i += 8) {
+                    std::string byteStr = encodedText.substr(i, 8);
+                    while (byteStr.size() < 8) {
+                        byteStr += '0';
+                    }
+                    std::bitset<8> byte(byteStr);
+                    outFile.put(static_cast<unsigned char>(byte.to_ulong()));
+                }
+            }
+        }
+        outFile.close();
+    }
+
+    void decompressFolder(const std::string &inputFile, const std::string &outputFolder) {
+        std::ifstream inFile(inputFile, std::ios::binary);
+        if (!inFile) {
+            throw std::runtime_error("Failed to open compressed file.");
+        }
+
+        if (!fs::exists(outputFolder)) {
+            fs::create_directories(outputFolder);
+        }
+
+        size_t fileCount;
+        inFile.read(reinterpret_cast<char*>(&fileCount), sizeof(fileCount));
+
+        for (size_t i = 0; i < fileCount; ++i) {
+            size_t nameLength;
+            inFile.read(reinterpret_cast<char*>(&nameLength), sizeof(nameLength));
+            std::string fileName(nameLength, '\0');
+            inFile.read(&fileName[0], nameLength);
+
+            size_t mapSize;
+            inFile.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
+            std::unordered_map<std::string, char> reverseHuffmanCodes;
+            for (size_t j = 0; j < mapSize; ++j) {
+                char ch = inFile.get();
+                size_t codeLength;
+                inFile.read(reinterpret_cast<char*>(&codeLength), sizeof(codeLength));
+                std::string code(codeLength, '\0');
+                inFile.read(&code[0], codeLength);
+                reverseHuffmanCodes[code] = ch;
+            }
+
+            size_t encodedSize;
+            inFile.read(reinterpret_cast<char*>(&encodedSize), sizeof(encodedSize));
+
+            std::string encodedText;
+            for (size_t j = 0; j < encodedSize; j += 8) {
+                unsigned char byte = inFile.get();
+                std::bitset<8> bits(byte);
+                encodedText += bits.to_string();
+            }
+
+            std::string decompressedText;
+            std::string currentCode;
+            for (char bit : encodedText) {
+                currentCode += bit;
+                if (reverseHuffmanCodes.count(currentCode)) {
+                    decompressedText += reverseHuffmanCodes[currentCode];
+                    currentCode.clear();
+                }
+            }
+
+            std::ofstream outFile(outputFolder + "/" + fileName);
+            if (!outFile) {
+                throw std::runtime_error("Failed to open output file: " + fileName);
+            }
+            outFile << decompressedText;
+            outFile.close();
+        }
         inFile.close();
     }
 } // namespace huffman

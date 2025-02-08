@@ -16,8 +16,6 @@ target_sources(${PROGRAM_NAME}
     src/huffman.cpp
 )
 
-#find_package(ZLIB REQUIRED)  # Find zlib package
-
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
 
 target_compile_features(${PROGRAM_NAME} PRIVATE cxx_std_20)
@@ -46,3 +44,5 @@ target_compile_options(${PROGRAM_NAME} PRIVATE
     # Sanitizers for DebugWithSanitizers
     $<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:DebugWithSanitizers>>:-O0 -g -fno-omit-frame-pointer -fsanitize=address,undefined>
 )
+
+#target_link_options(${PROGRAM_NAME} PRIVATE -fsanitize=address)
