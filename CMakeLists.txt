@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-
 project(co_de)
 
 # creates a variable PROGRAM_NAME with the value co_de
@@ -9,22 +7,19 @@ set(PROGRAM_NAME co_de)
 
 add_executable(${PROGRAM_NAME}
         include/lzw.hpp
+        include/huffman.hpp
         src/lzw.cpp
+        src/huffman.cpp
 )
 
 target_sources(${PROGRAM_NAME}
     PRIVATE
     main.cpp
     src/huffman.cpp
+    src/lzw.cpp
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
-
-find_package(fmt CONFIG REQUIRED)
-target_link_libraries(${PROGRAM_NAME} PRIVATE fmt::fmt)
-
-find_package(GIF REQUIRED)
-target_link_libraries(${PROGRAM_NAME} PRIVATE GIF::GIF)
 
 
 target_include_directories(${PROGRAM_NAME} PRIVATE include/)
@@ -34,24 +29,19 @@ set_target_properties(${PROGRAM_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-# # Sanitizers
-# target_compile_options(${PROGRAM_NAME} PRIVATE
-#     -fsanitize=address,undefined
-# )
-# target_link_options(${PROGRAM_NAME} PRIVATE
-#     -fsanitize=address,undefined
-# )
+# Sanitizers
+target_compile_options(${PROGRAM_NAME} PRIVATE
+    -fsanitize=address,undefined
+)
+target_link_options(${PROGRAM_NAME} PRIVATE
+    -fsanitize=address,undefined
+)
 
 # Copy input files to build directory
 # Text files
-configure_file(input.txt input.txt COPYONLY)
 configure_file(Harry_Potter.txt Harry_Potter.txt COPYONLY)
-configure_file(input.txt input.txt COPYONLY)
-configure_file(input1.txt input1.txt COPYONLY)
-# Image files
-configure_file(image.png image.png COPYONLY)
-# gif files
-configure_file(cat.gif cat.gif COPYONLY)
+# Folder
+file(COPY test DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # Warnings and optimizations
 target_compile_options(${PROGRAM_NAME} PRIVATE
