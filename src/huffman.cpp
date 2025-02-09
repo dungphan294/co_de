@@ -159,55 +159,43 @@ namespace huffman
             throw std::runtime_error("Failed to open output file: " + outputFile);
         }
 
-        // Write folder metadata
+        // Extract the desired extension (.zip, .lzw, etc.)
+        std::string fileExtension = fs::path(outputFile).extension().string();
+        if (fileExtension.empty()) {
+            fileExtension = ".huff";  // Default to .huff if no extension provided
+        }
+
         size_t fileCount = std::distance(fs::directory_iterator(inputFolder), fs::directory_iterator());
         outFile.write(reinterpret_cast<const char*>(&fileCount), sizeof(fileCount));
 
         for (const auto &entry : fs::directory_iterator(inputFolder)) {
             if (entry.is_regular_file()) {
-                std::string fileName = entry.path().filename().string();
-                std::ifstream inFile(entry.path(), std::ios::binary);
-                if (!inFile) {
-                    throw std::runtime_error("Failed to open input file: " + fileName);
+                std::string tempCompressedFile = entry.path().string() + fileExtension;
+                compressZipfile(entry.path().string(), tempCompressedFile);  // Generalized function name
+
+                std::ifstream tempFile(tempCompressedFile, std::ios::binary);
+                if (!tempFile) {
+                    throw std::runtime_error("Failed to open temp compressed file.");
                 }
 
                 std::ostringstream buffer;
-                buffer << inFile.rdbuf();
-                std::string fileContent = buffer.str();
-                inFile.close();
+                buffer << tempFile.rdbuf();
+                std::string compressedData = buffer.str();
+                tempFile.close();
+                fs::remove(tempCompressedFile);
 
-                Node *root = buildHuffmanTree(fileContent);
-                std::unordered_map<char, std::string> huffmanCodes;
-                print_code(root, "", huffmanCodes);
-                std::string encodedText = encode(fileContent, huffmanCodes);
-
-                size_t nameLength = fileName.size();
+                size_t nameLength = entry.path().filename().string().size();
                 outFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
-                outFile.write(fileName.c_str(), nameLength);
+                outFile.write(entry.path().filename().string().c_str(), nameLength);
 
-                size_t mapSize = huffmanCodes.size();
-                outFile.write(reinterpret_cast<const char*>(&mapSize), sizeof(mapSize));
-                for (const auto &pair : huffmanCodes) {
-                    outFile.put(pair.first);
-                    size_t codeLength = pair.second.size();
-                    outFile.write(reinterpret_cast<const char*>(&codeLength), sizeof(codeLength));
-                    outFile.write(pair.second.c_str(), codeLength);
-                }
-
-                size_t encodedSize = encodedText.size();
-                outFile.write(reinterpret_cast<const char*>(&encodedSize), sizeof(encodedSize));
-                for (size_t i = 0; i < encodedSize; i += 8) {
-                    std::string byteStr = encodedText.substr(i, 8);
-                    while (byteStr.size() < 8) {
-                        byteStr += '0';
-                    }
-                    std::bitset<8> byte(byteStr);
-                    outFile.put(static_cast<unsigned char>(byte.to_ulong()));
-                }
+                size_t dataSize = compressedData.size();
+                outFile.write(reinterpret_cast<const char*>(&dataSize), sizeof(dataSize));
+                outFile.write(compressedData.data(), dataSize);
             }
         }
         outFile.close();
     }
+
 
     void decompressFolder(const std::string &inputFile, const std::string &outputFolder) {
         std::ifstream inFile(inputFile, std::ios::binary);
@@ -219,6 +207,11 @@ namespace huffman
             fs::create_directories(outputFolder);
         }
 
+        std::string fileExtension = fs::path(inputFile).extension().string();
+        if (fileExtension.empty()) {
+            fileExtension = ".huff";  // Default if not specified
+        }
+
         size_t fileCount;
         inFile.read(reinterpret_cast<char*>(&fileCount), sizeof(fileCount));
 
@@ -228,37 +221,22 @@ namespace huffman
             std::string fileName(nameLength, '\0');
             inFile.read(&fileName[0], nameLength);
 
-            size_t mapSize;
-            inFile.read(reinterpret_cast<char*>(&mapSize), sizeof(mapSize));
-            std::unordered_map<std::string, char> reverseHuffmanCodes;
-            for (size_t j = 0; j < mapSize; ++j) {
-                char ch = inFile.get();
-                size_t codeLength;
-                inFile.read(reinterpret_cast<char*>(&codeLength), sizeof(codeLength));
-                std::string code(codeLength, '\0');
-                inFile.read(&code[0], codeLength);
-                reverseHuffmanCodes[code] = ch;
-            }
+            size_t dataSize;
+            inFile.read(reinterpret_cast<char*>(&dataSize), sizeof(dataSize));
+            std::string compressedData(dataSize, '\0');
+            inFile.read(&compressedData[0], dataSize);
 
-            size_t encodedSize;
-            inFile.read(reinterpret_cast<char*>(&encodedSize), sizeof(encodedSize));
-
-            std::string encodedText;
-            for (size_t j = 0; j < encodedSize; j += 8) {
-                unsigned char byte = inFile.get();
-                std::bitset<8> bits(byte);
-                encodedText += bits.to_string();
+            std::string tempCompressedFile = outputFolder + "/" + fileName + fileExtension;
+            std::ofstream tempFile(tempCompressedFile, std::ios::binary);
+            if (!tempFile) {
+                throw std::runtime_error("Failed to open temp compressed file.");
             }
+            tempFile.write(compressedData.data(), dataSize);
+            tempFile.close();
 
             std::string decompressedText;
-            std::string currentCode;
-            for (char bit : encodedText) {
-                currentCode += bit;
-                if (reverseHuffmanCodes.count(currentCode)) {
-                    decompressedText += reverseHuffmanCodes[currentCode];
-                    currentCode.clear();
-                }
-            }
+            decompressZipFile(tempCompressedFile, decompressedText);  // Generalized function name
+            fs::remove(tempCompressedFile);
 
             std::ofstream outFile(outputFolder + "/" + fileName);
             if (!outFile) {
@@ -269,4 +247,5 @@ namespace huffman
         }
         inFile.close();
     }
+
 } // namespace huffman
