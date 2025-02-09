@@ -75,26 +75,29 @@ namespace huffman
     std::string encode(const std::string &str, const std::unordered_map<char, std::string> &Huffman_tree);
 
     /**
-     * @brief Decode a string using Huffman codes.
+     * @brief Compresses a file using the Huffman algorithm.
      *
-     * @param inputFile
-     * @param outputFile
+     * Reads the input file, applies the Huffman compression algorithm, and writes the compressed data to the output file.
+     *
+     * @param inputFile Path to the input file to be compressed.
+     * @param outputFile Path to the output file where compressed data will be written.
      */
     void compress(const std::string &inputFile, const std::string &outputFile);
 
     /**
-     * @brief Decompress a string using Huffman codes.
+     * @brief Decompresses a previously compressed file using the Huffman algorithm.
      *
-     * @param str The input string to decode.
-     * @param root Pointer to the root of the Huffman tree.
+     * Reads the compressed file, applies the Huffman decompression algorithm, and writes the decompressed data to the output file.
      *
+     * @param inputFile Path to the compressed input file.
+     * @param outputFile Path to the output file where decompressed data will be written.
      */
     void decompress(const std::string &inputFile, const std::string &outputFile);
 
     /**
-     * @brief Compresses a folder using the LZW algorithm.
+     * @brief Compresses a folder using the Huffman algorithm.
      *
-     * Reads the input folder, applies the LZW compression algorithm to each file, and writes the compressed data to the output file.
+     * Reads the input folder, applies the Huffman compression algorithm to each file, and writes the compressed data to the output file.
      *
      * @param inputFolder Path to the input folder to be compressed.
      * @param outputFile Path to the output file where compressed data will be written.
@@ -104,9 +107,9 @@ namespace huffman
     void compressFolder(const std::string &folderPath, const std::string &outputFile);
 
     /**
-     * @brief Decompresses a previously compressed folder using the LZW algorithm.
+     * @brief Decompresses a previously compressed folder using the Huffman algorithm.
      *
-     * Reads the compressed file, applies the LZW decompression algorithm to each file, and writes the decompressed data to the output folder.
+     * Reads the compressed file, applies the Huffman decompression algorithm to each file, and writes the decompressed data to the output folder.
      *
      * @param inputFile Path to the compressed input file.
      * @param outputFolder Path to the output folder where decompressed data will be written.
